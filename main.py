@@ -19,9 +19,7 @@ app = FastAPI(title="KI Web Generator API")
 # ----------------------------
 # Token / API-Key für Schutz
 # ----------------------------
-import os
 API_KEY = os.environ.get("API_KEY")
-
 
 def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
@@ -67,20 +65,24 @@ def predict(data: InputData, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(log)
 
-    # ----------------------------
-# Lokaler Start (für Render & lokale Nutzung)
+    # Antwort zurückgeben
+    return {"input": data.text, "prediction": prediction}
+
+# ----------------------------
+# Root-Endpunkt (Startseite)
+# ----------------------------
+@app.get("/")
+def read_root():
+    return {"message": "Willkommen bei der KI Web Generator API!"}
+
+# ----------------------------
+# Lokaler Start (Render & lokal)
 # ----------------------------
 if __name__ == "__main__":
     import uvicorn
-
-    # Render übergibt PORT als Umgebungsvariable (z. B. '10000')
-    port = int(os.environ.get("PORT", 8000))
-
-    # App starten
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
 
-    # Antwort
-    return {"input": data.text, "prediction": prediction}
 
 
 
