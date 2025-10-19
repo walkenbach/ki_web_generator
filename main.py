@@ -70,3 +70,16 @@ def predict(data: InputData, db: Session = Depends(get_db)):
     # Antwort
     return {"input": data.text, "prediction": prediction}
 
+# ----------------------------
+# Lokaler Start (für Render & lokale Nutzung)
+# ----------------------------
+if __name__ == "__main__":
+    import uvicorn
+
+    # Render übergibt PORT als Umgebungsvariable (z. B. '10000')
+    port = int(os.environ.get("PORT", 8000))
+
+    # App starten
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
+
+
