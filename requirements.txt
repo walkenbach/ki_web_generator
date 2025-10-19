@@ -1,7 +1,7 @@
 fastapi
-uvicorn
-sqlalchemy
-pydantic
-scikit-learn
+uvicorn[standard]
 pandas
-python-multipart
+scikit-learn
+requests
+sqlalchemy
+
