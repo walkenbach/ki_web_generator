@@ -67,10 +67,7 @@ def predict(data: InputData, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(log)
 
-    # Antwort
-    return {"input": data.text, "prediction": prediction}
-
-# ----------------------------
+    # ----------------------------
 # Lokaler Start (für Render & lokale Nutzung)
 # ----------------------------
 if __name__ == "__main__":
@@ -81,5 +78,10 @@ if __name__ == "__main__":
 
     # App starten
     uvicorn.run("main:app", host="0.0.0.0", port=port)
+
+    # Antwort
+    return {"input": data.text, "prediction": prediction}
+
+
 
 
