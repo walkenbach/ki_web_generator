@@ -1,90 +1,76 @@
-import os
-import pickle
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from database import SessionLocal
-from models import RequestLog
+import requests
+import pickle
+from io import BytesIO
 
-# ----------------------------
-# Basis-Pfad
-# ----------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# -------------------------
+# URLs zu den GitHub-Modellen
+# -------------------------
+MODEL_URL = "https://raw.githubusercontent.com/walkenbach/ki_web_generator/main/model.pkl"
+VECTORIZER_URL = "https://raw.githubusercontent.com/walkenbach/ki_web_generator/main/vectorizer.pkl"
 
-# ----------------------------
-# FastAPI-App
-# ----------------------------
+# -------------------------
+# Modelle laden
+# -------------------------
+def load_pickle_from_url(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return pickle.load(BytesIO(response.content))
+
+model = load_pickle_from_url(MODEL_URL)
+vectorizer = load_pickle_from_url(VECTORIZER_URL)
+
+print("Modelle erfolgreich geladen!")
+
+# -------------------------
+# FastAPI App
+# -------------------------
 app = FastAPI(title="KI Web Generator API")
 
-# ----------------------------
-# Token / API-Key für Schutz (optional)
-# ----------------------------
-API_KEY = os.environ.get("API_KEY")  # auf Render als Environment Variable setzen
+# -------------------------
+# API-Key (sollte auf Render als Umgebungsvariable gesetzt werden)
+# -------------------------
+import os
+API_KEY = os.environ.get("API_KEY", "rnd_qAPT86mEedXqRQrqijotOXe1G80g")  # Default für Test
 
 def verify_api_key(x_api_key: str = Header(...)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Ungültiger API-Key")
 
-# ----------------------------
-# Datenbank-Session
-# ----------------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# ----------------------------
-# KI-Modelle laden
-# ----------------------------
-with open(os.path.join(BASE_DIR, "vectorizer.pkl"), "rb") as f:
-    vectorizer = pickle.load(f)
-
-with open(os.path.join(BASE_DIR, "model.pkl"), "rb") as f:
-    model = pickle.load(f)
-
-# ----------------------------
-# Input-Daten
-# ----------------------------
-class InputData(BaseModel):
+# -------------------------
+# Request Body
+# -------------------------
+class InputText(BaseModel):
     text: str
 
-# ----------------------------
+# -------------------------
 # Endpunkte
-# ----------------------------
-@app.post("/predict", dependencies=[Depends(verify_api_key)])
-def predict(data: InputData, db: Session = Depends(get_db)):
-    X = vectorizer.transform([data.text])
-    prediction = model.predict(X)[0]
-
-    # Logging in DB
-    log = RequestLog(input_text=data.text, output_text=prediction)
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-
-    return {"input": data.text, "prediction": prediction}
-
+# -------------------------
 @app.get("/")
 def read_root():
     return {"message": "Willkommen bei der KI Web Generator API!"}
 
-# ----------------------------
-# Render-kompatibles Start-Skript
-# ----------------------------
+@app.post("/predict")
+def predict(input_data: InputText, x_api_key: str = Header(...)):
+    # API-Key prüfen
+    verify_api_key(x_api_key)
+
+    # Text in Vektor umwandeln
+    X = vectorizer.transform([input_data.text])
+    # Vorhersage mit Modell
+    prediction = model.predict(X)
+    return {"input": input_data.text, "prediction": prediction[0]}
+
+# -------------------------
+# Optional: zum lokalen Testen
+# -------------------------
 if __name__ == "__main__":
     import uvicorn
-
-    # Render setzt automatisch PORT als Umgebungsvariable
-    port_str = os.environ.get("PORT", "10000")
-    try:
-        port = int(port_str)
-    except ValueError:
-        print(f"Warnung: Ungültiger PORT-Wert '{port_str}', Default 10000 wird genutzt")
-        port = 10000
-
+    import os
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+
 
 
 
